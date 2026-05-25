@@ -112,6 +112,16 @@ fun DebtSyncNavigation(viewModel: ContactViewModel) {
             AIAssistantScreen(onNavigateBack = { navController.popBackStack() })
         }
 
+        // --- ANALYTICS SCREEN ---
+        composable("analytics") {
+            AnalyticsScreen(navController, viewModel)
+        }
+
+        // --- SPLIT BILL SCREEN ---
+        composable("split_bills") {
+            SplitBillScreen(navController, viewModel)
+        }
+
         // --- CONTACT DETAIL SCREEN ---
         composable(
             route = "contact_detail/{contactId}",
@@ -254,10 +264,10 @@ fun OnboardingScreen(navController: NavController, viewModel: ContactViewModel) 
                         val id = doGoogleSignIn(context)
                         if (id != null) {
                             Toast.makeText(context, "Sign-in successful", Toast.LENGTH_SHORT).show()
+                            permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
                         } else {
-                            Toast.makeText(context, "Google Sign-in failed (missing Client ID). Proceeding...", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Google Sign-in failed. Please configure Client ID in Secrets.", Toast.LENGTH_LONG).show()
                         }
-                        permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = OffWhiteText, contentColor = DeepSpaceBackground),
@@ -273,6 +283,16 @@ fun OnboardingScreen(navController: NavController, viewModel: ContactViewModel) 
                     Spacer(modifier = Modifier.width(12.dp))
                     Text("Continue with Google", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            TextButton(
+                onClick = {
+                    permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                }
+            ) {
+                Text("Skip sign-in for now", color = MutedSlateText, fontWeight = FontWeight.SemiBold)
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -443,6 +463,18 @@ fun DashboardScreen(navController: NavController, viewModel: ContactViewModel) {
     var selectedFilterTab by remember { mutableStateOf("All") } // "All", "Owed", "Lent"
     var showUpiSelector by remember { mutableStateOf<ContactWithBalance?>(null) }
     var quickAddContactId by remember { mutableStateOf<Long?>(null) }
+    
+    val voiceResultLauncher = rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val spokenText: String? = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.get(0)
+            if (!spokenText.isNullOrEmpty()) {
+                android.widget.Toast.makeText(context, "Voice command received: \$spokenText", android.widget.Toast.LENGTH_LONG).show()
+                // In a real app, this would be parsed by DebtSync AI and saved.
+            }
+        }
+    }
 
     // Set status bar lock updates
     LaunchedEffect(Unit) {
@@ -554,6 +586,55 @@ fun DashboardScreen(navController: NavController, viewModel: ContactViewModel) {
                 )
             }
 
+            // Quick Actions (Analytics, Split Bills, Voice)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { navController.navigate("analytics") },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = CyanSlateAccent),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Insights, contentDescription = null, tint = DeepSpaceBackground)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Stats", color = DeepSpaceBackground, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = { navController.navigate("split_bills") },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonEmeraldGreen),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.CallSplit, contentDescription = null, tint = DeepSpaceBackground)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Split", color = DeepSpaceBackground, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = {
+                            val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Say 'Rahul owes me 500'")
+                            }
+                            try {
+                                voiceResultLauncher.launch(intent)
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(context, "Voice input not supported", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MatteGoldAccent),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Mic, contentDescription = null, tint = DeepSpaceBackground)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Voice", color = DeepSpaceBackground, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
             // Quick Contact Search input element
             item {
                 OutlinedTextField(
@@ -652,6 +733,7 @@ fun DashboardScreen(navController: NavController, viewModel: ContactViewModel) {
                         },
                         onRemindClick = {
                             val textMessage = viewModel.getWhatsAppReminderMessage(item.contact.name, item.netBalance)
+                            showNotification(context, "DebtSync Auto-Reminder", "Payment reminder scheduled for ${item.contact.name}")
                             launchWhatsApp(context, item.contact.phone, textMessage)
                         },
                         onAddClick = {
@@ -1574,6 +1656,7 @@ fun ContactDetailScreen(
                                 .clip(RoundedCornerShape(14.dp))
                                 .clickable {
                                     val textMessage = viewModel.getWhatsAppReminderMessage(contactProfile.name, netBalance)
+                                    showNotification(context, "DebtSync Auto-Reminder", "Payment reminder scheduled for ${contactProfile.name}")
                                     launchWhatsApp(context, contactProfile.phone, textMessage)
                                 },
                             color = DarkSurface,

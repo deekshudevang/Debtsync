@@ -1,21 +1,37 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# DebtSync AI
 
-# Run and deploy your AI Studio app
+**Track, pay, and reconcile together.**
 
-This contains everything you need to run your app locally.
+DebtSync AI is a premium, offline-first (with cloud sync capabilities) peer-to-peer debt tracker and settlement application. Designed for students, roommates, and professionals who frequently split bills or borrow money, DebtSync AI takes the awkwardness out of asking for your money back.
 
-View your app in AI Studio: https://ai.studio/apps/b5e5bac3-70bb-4caa-aeb9-96c1a1ce5ff2
+---
 
-## Run Locally
+## 🚀 Key Features
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+* **Smart Payment Redirect**: Instantly launch GPay, PhonePe, or Paytm pre-filled with the exact owed amount and UPI ID.
+* **Auto-reminders & AI Parsing (Coming Soon)**: Just say "Rahul owes me 500" and let the AI do the rest.
+* **Dark Fintech UI**: A sleek, minimal, premium design language.
+* **Split Bills**: Seamlessly split trips or restaurant checks among friends.
+* **Local First & Cloud Backup**: Powered by local Room DB and Google Auth for seamless data persistence that survives device changes.
 
+## 📱 Screenshots & Demo
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+*(Add screenshots and GIFs here)*
+
+## 🛠️ Tech Stack & Architecture
+
+* **UI Framework**: Jetpack Compose (Material Design 3)
+* **Architecture**: Clean Architecture / MVVM Pattern
+* **Local Persistence**: Room Database (SQLite)
+* **Authentication**: Google Sign-In via Android Credentials Manager
+* **Concurrency**: Kotlin Coroutines & Flows
+* **Navigation**: Jetpack Navigation Compose
+
+## 🗺️ Roadmap
+
+- [x] **Phase 1**: Professional UI, UPI payment redirect, Clean architecture, Onboarding.
+- [ ] **Phase 2**: Push Notifications, Realtime sync, Analytics graphs.
+- [ ] **Phase 3**: Split bills, AI chat parsing, Voice input.
+
+---
+Built with passion to solve real emotional friction when handling peer-to-peer debts.

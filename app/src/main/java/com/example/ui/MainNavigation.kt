@@ -172,7 +172,7 @@ fun SplashScreen(navController: NavController, isLocked: Boolean, isUnlocked: Bo
             }
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                text = "DebtSync",
+                text = "DebtSync AI",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = OffWhiteText
@@ -234,7 +234,7 @@ fun OnboardingScreen(navController: NavController, viewModel: ContactViewModel) 
             }
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "Welcome to DebtSync",
+                text = "Welcome to DebtSync AI",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = OffWhiteText

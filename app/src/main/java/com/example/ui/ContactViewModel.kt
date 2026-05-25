@@ -65,6 +65,7 @@ class ContactViewModel(application: Application) : AndroidViewModel(application)
     val isAppLocked = MutableStateFlow(prefs.getBoolean("is_locked_enabled", false) && (prefs.getString("app_pin", "")?.isNotEmpty() == true))
     val isTempUnlocked = MutableStateFlow(false)
     val isOnboarded = MutableStateFlow(prefs.getBoolean("is_onboarded", false))
+    val googleAccountId = MutableStateFlow(prefs.getString("google_account_id", null))
 
     init {
         val database = AppDatabase.getDatabase(application)
@@ -163,15 +164,37 @@ class ContactViewModel(application: Application) : AndroidViewModel(application)
         return matches
     }
 
+    fun biometricUnlock() {
+        isTempUnlocked.value = true
+    }
+
     fun lockApp() {
         if (appPinState.value.isNotEmpty()) {
             isTempUnlocked.value = false
         }
     }
 
-    fun setOnboarded() {
-        prefs.edit().putBoolean("is_onboarded", true).apply()
+    fun setOnboarded(googleAccountIdStr: String? = null) {
+        prefs.edit().apply {
+            putBoolean("is_onboarded", true)
+            if (googleAccountIdStr != null) {
+                putString("google_account_id", googleAccountIdStr)
+            }
+        }.apply()
         isOnboarded.value = true
+        if (googleAccountIdStr != null) {
+            googleAccountId.value = googleAccountIdStr
+        }
+    }
+
+    fun saveGoogleAccount(accountId: String) {
+        prefs.edit().putString("google_account_id", accountId).apply()
+        googleAccountId.value = accountId
+    }
+
+    fun clearGoogleAccount() {
+        prefs.edit().remove("google_account_id").apply()
+        googleAccountId.value = null
     }
 
     // Database manipulation functions supporting views

@@ -15,8 +15,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -56,6 +61,9 @@ import android.provider.ContactsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -182,7 +190,7 @@ fun SplashScreen(navController: NavController, isLocked: Boolean, isUnlocked: Bo
             }
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                text = "DebtSync AI",
+                text = "DebtSync X",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = OffWhiteText
@@ -206,13 +214,15 @@ fun SplashScreen(navController: NavController, isLocked: Boolean, isUnlocked: Bo
 fun OnboardingScreen(navController: NavController, viewModel: ContactViewModel) {
     val context = LocalContext.current
     
+    var pendingLoginId by remember { mutableStateOf<String?>(null) }
+    
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
             Toast.makeText(context, "Contacts Synced", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(context, "Contacts permission required for optimal experience.", Toast.LENGTH_SHORT).show()
         }
-        viewModel.setOnboarded()
+        viewModel.setOnboarded(pendingLoginId)
         navController.navigate("dashboard") {
             popUpTo("onboarding") { inclusive = true }
         }
@@ -244,7 +254,7 @@ fun OnboardingScreen(navController: NavController, viewModel: ContactViewModel) 
             }
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "Welcome to DebtSync AI",
+                text = "Welcome to DebtSync X",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = OffWhiteText
@@ -261,12 +271,17 @@ fun OnboardingScreen(navController: NavController, viewModel: ContactViewModel) 
             Button(
                 onClick = {
                     coroutineScope.launch {
-                        val id = doGoogleSignIn(context)
-                        if (id != null) {
-                            Toast.makeText(context, "Sign-in successful", Toast.LENGTH_SHORT).show()
-                            permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-                        } else {
-                            Toast.makeText(context, "Google Sign-in failed. Please configure Client ID in Secrets.", Toast.LENGTH_LONG).show()
+                        try {
+                            val id = doGoogleSignIn(context)
+                            if (id != null) {
+                                pendingLoginId = id
+                                Toast.makeText(context, "Sign-in successful", Toast.LENGTH_SHORT).show()
+                                permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                            } else {
+                                Toast.makeText(context, "Google Sign-in failed. Please verify your Web Client ID.", Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Throwable) {
+                            Toast.makeText(context, "Sign-in error: \${e.message}", Toast.LENGTH_LONG).show()
                         }
                     }
                 },
@@ -314,6 +329,36 @@ fun LockScreen(viewModel: ContactViewModel, onUnlocked: () -> Unit) {
     var enteredPin by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
     val savedPin by viewModel.appPinState.collectAsState()
+    val context = LocalContext.current
+
+    var retryBiometric by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(retryBiometric) {
+        val activity = context as? FragmentActivity ?: return@LaunchedEffect
+        val executor = ContextCompat.getMainExecutor(context)
+        val biometricPrompt = BiometricPrompt(
+            activity,
+            executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    viewModel.biometricUnlock()
+                    onUnlocked()
+                }
+            }
+        )
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Biometric Login")
+            .setSubtitle("Use your fingerprint to access DebtSync X")
+            .setDeviceCredentialAllowed(true)
+            .build()
+        
+        try {
+            biometricPrompt.authenticate(promptInfo)
+        } catch (e: Exception) {
+            // Biometric not setup or cancelled
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -376,7 +421,7 @@ fun LockScreen(viewModel: ContactViewModel, onUnlocked: () -> Unit) {
                 listOf("1", "2", "3"),
                 listOf("4", "5", "6"),
                 listOf("7", "8", "9"),
-                listOf("Clear", "0", "Delete")
+                listOf("Fingerprint", "0", "Delete")
             )
 
             keys.forEach { row ->
@@ -385,7 +430,7 @@ fun LockScreen(viewModel: ContactViewModel, onUnlocked: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(0.85f)
                 ) {
                     row.forEach { digit ->
-                        val isSpecial = digit == "Clear" || digit == "Delete"
+                        val isSpecial = digit == "Fingerprint" || digit == "Delete"
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -394,9 +439,8 @@ fun LockScreen(viewModel: ContactViewModel, onUnlocked: () -> Unit) {
                                 .background(if (isSpecial) Color.Transparent else DarkSurface)
                                 .clickable {
                                     when (digit) {
-                                        "Clear" -> {
-                                            enteredPin = ""
-                                            pinError = false
+                                        "Fingerprint" -> {
+                                            retryBiometric++
                                         }
                                         "Delete" -> {
                                             if (enteredPin.isNotEmpty()) {
@@ -432,6 +476,13 @@ fun LockScreen(viewModel: ContactViewModel, onUnlocked: () -> Unit) {
                                     imageVector = Icons.AutoMirrored.Filled.Backspace,
                                     contentDescription = "Delete Icon",
                                     tint = OffWhiteText
+                                )
+                            } else if (digit == "Fingerprint") {
+                                Icon(
+                                    imageVector = Icons.Default.Fingerprint,
+                                    contentDescription = "Fingerprint",
+                                    tint = CyanSlateAccent,
+                                    modifier = Modifier.size(32.dp)
                                 )
                             } else {
                                 Text(
@@ -1287,11 +1338,17 @@ fun AddContactScreen(navController: NavController, viewModel: ContactViewModel) 
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Contact Information", fontSize = 14.sp, color = MutedSlateText)
-                TextButton(onClick = { permissionLauncher.launch(Manifest.permission.READ_CONTACTS) }) {
-                    Icon(Icons.Default.Contacts, contentDescription = null, tint = CyanSlateAccent, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Auto-Fill from Contacts", color = CyanSlateAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
+            }
+            
+            Button(
+                onClick = { permissionLauncher.launch(Manifest.permission.READ_CONTACTS) },
+                colors = ButtonDefaults.buttonColors(containerColor = CyanSlateAccent.copy(alpha = 0.2f), contentColor = OffWhiteText),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Contacts, contentDescription = null, tint = CyanSlateAccent, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Import from Phone Contacts", color = OffWhiteText, fontWeight = FontWeight.Bold)
             }
 
             OutlinedTextField(
@@ -1367,7 +1424,7 @@ fun AddContactScreen(navController: NavController, viewModel: ContactViewModel) 
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = CyanSlateAccent)
             ) {
-                Text("Create Contact Profile", color = DeepSpaceBackground, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("Create Contact Profile", color = OffWhiteText, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }
@@ -2014,8 +2071,10 @@ fun EmptyListPlaceholder(
 @Composable
 fun SettingsScreen(navController: NavController, viewModel: ContactViewModel) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val savedPin by viewModel.appPinState.collectAsState()
     val isLockedEnabled by viewModel.isAppLocked.collectAsState()
+    val connectedGoogleAccount by viewModel.googleAccountId.collectAsState()
 
     var showPinDialog by remember { mutableStateOf(false) }
     var pinDialogCode by remember { mutableStateOf("") }
@@ -2041,14 +2100,90 @@ fun SettingsScreen(navController: NavController, viewModel: ContactViewModel) {
             }
         }
     ) { innerPadding ->
+        val scrollState = rememberScrollState()
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             
+            // CLOUD SYNC & ACCOUNT BLOCK
+            Text("Cloud Synchronization", fontSize = 14.sp, color = MutedSlateText, fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(DarkSurface)
+                    .border(BorderStroke(1.dp, DarkBorder), RoundedCornerShape(16.dp))
+                    .padding(16.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (connectedGoogleAccount == null) {
+                                    coroutineScope.launch {
+                                        try {
+                                            val id = doGoogleSignIn(context)
+                                            if (id != null) {
+                                                viewModel.saveGoogleAccount(id)
+                                                Toast.makeText(context, "Google Account Linked!", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Google Sign-in failed.", Toast.LENGTH_LONG).show()
+                                            }
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Sign-in error: ${e.message}", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                } else {
+                                    viewModel.clearGoogleAccount()
+                                    Toast.makeText(context, "Google Account Disconnected.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(if (connectedGoogleAccount != null) NeonEmeraldGreen.copy(alpha = 0.12f) else DarkElevatedSurface),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.CloudSync,
+                                contentDescription = "Sync",
+                                tint = if (connectedGoogleAccount != null) NeonEmeraldGreen else OffWhiteText,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (connectedGoogleAccount != null) "Google Account Connected" else "Link Google Account",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = OffWhiteText
+                            )
+                            Text(
+                                if (connectedGoogleAccount != null) "Sync is active for ${connectedGoogleAccount!!.take(10)}..." else "Enable seamless cloud backups",
+                                fontSize = 11.sp,
+                                color = MutedSlateText
+                            )
+                        }
+                        Text(
+                            text = if (connectedGoogleAccount != null) "UNLINK" else "LINK",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (connectedGoogleAccount != null) MutedSlateText else CyanSlateAccent
+                        )
+                    }
+                }
+            }
+
             // SECURITY CONTROL BLOCK
             Text("Security & PIN Protection", fontSize = 14.sp, color = MutedSlateText, fontWeight = FontWeight.Bold)
             Box(
@@ -2231,15 +2366,33 @@ fun SettingsScreen(navController: NavController, viewModel: ContactViewModel) {
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            // APPEARANCE & THEMES
+            Text("Appearance", fontSize = 14.sp, color = MutedSlateText, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(DarkSurface)
+                    .border(BorderStroke(1.dp, DarkBorder), RoundedCornerShape(16.dp))
+                    .padding(16.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    SettingsRow(icon = Icons.Default.DarkMode, title = "Dark Mode", subtitle = "Midnight Obsidian", tint = MutedSlateText, hasToggle = true, defaultToggle = true)
+                    SettingsRow(icon = Icons.Default.FontDownload, title = "System Font", subtitle = "Variable sans-serif", tint = MutedSlateText, hasToggle = true, defaultToggle = true)
+                    SettingsRow(icon = Icons.Default.Animation, title = "Reduced Motion", subtitle = "Disable parallax and glass blur", tint = MutedSlateText, hasToggle = true, defaultToggle = false)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Version v1.0.0 Stable (Native Compose Build)",
+                text = "Version 1.0.0 (DebtSync X Native Build)",
                 fontSize = 11.sp,
                 color = MutedSlateText,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
@@ -2355,45 +2508,86 @@ fun UPIAppSelectorBottomSheet(
     onAppSelected: (String) -> Unit
 ) {
     val upiApps = listOf(
-        Pair("Google Pay", "com.google.android.apps.nbu.paisa.user"),
-        Pair("Paytm", "net.one97.paytm"),
-        Pair("PhonePe", "com.phonepe.app"),
-        Pair("Navi", "com.naviapp"),
-        Pair("Amazon Pay", "in.amazon.mShop.android.shopping"),
-        Pair("Other UPI App", "")
+        Triple("Google Pay", "com.google.android.apps.nbu.paisa.user", Color(0xFFFFFFFF)),
+        Triple("Paytm", "net.one97.paytm", Color(0xFF002970)),
+        Triple("PhonePe", "com.phonepe.app", Color(0xFF5F259F)),
+        Triple("Cred", "com.dreamplug.androidapp", Color(0xFF141414)),
+        Triple("Amazon Pay", "in.amazon.mShop.android.shopping", Color(0xFF000000)),
+        Triple("Other Apps", "", DarkElevatedSurface)
     )
     
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
-        containerColor = DarkSurface
+        containerColor = DeepSpaceBackground,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 16.dp, bottom = 8.dp)
+                    .width(48.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MutedSlateText.copy(alpha = 0.5f))
+            )
+        }
     ) {
         Column(
-            modifier = Modifier.padding(24.dp).padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Text(
-                "Select Payment App",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                "Complete Payment",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
                 color = OffWhiteText
             )
             
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.heightIn(max = 400.dp)
+            ) {
                 items(upiApps) { app ->
-                    Row(
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(DarkElevatedSurface)
+                            .clip(RoundedCornerShape(16.dp))
                             .clickable { onAppSelected(app.second) }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(8.dp)
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(app.third)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (app.third == DarkElevatedSurface || app.third == Color(0xFF141414) || app.third == Color(0xFF000000)) MutedSlateText.copy(alpha = 0.2f) else app.third.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(20.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (app.first == "Google Pay") {
+                                Text("GPay", color = Color(0xFF1A73E8), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                            } else if (app.first == "Paytm") {
+                                Text("Paytm", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                            } else if (app.first == "PhonePe") {
+                                Text("पे", color = Color.White, fontWeight = FontWeight.Black, fontSize = 28.sp)
+                            } else if (app.first == "Cred") {
+                                Text("CRED", color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                            } else if (app.first == "Amazon Pay") {
+                                Text("pay", color = Color(0xFFFF9900), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                            } else {
+                                Icon(Icons.Default.MoreHoriz, contentDescription = null, tint = OffWhiteText)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = app.first,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = OffWhiteText
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MutedSlateText,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -2454,5 +2648,40 @@ fun launchWhatsApp(context: Context, phone: String, message: String) {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(Intent.createChooser(textIntent, "Send Reminder Profile Detail"))
+    }
+}
+
+@Composable
+fun SettingsRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, tint: androidx.compose.ui.graphics.Color, hasToggle: Boolean = false, defaultToggle: Boolean = false) {
+    var isChecked by remember { mutableStateOf(defaultToggle) }
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { if(hasToggle) isChecked = !isChecked },
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(tint.copy(alpha=0.15f)), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = OffWhiteText)
+                Text(subtitle, fontSize = 11.sp, color = MutedSlateText)
+            }
+        }
+        if (hasToggle) {
+            Switch(
+                checked = isChecked,
+                onCheckedChange = { isChecked = it },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = CyanSlateAccent,
+                    checkedTrackColor = CyanSlateAccent.copy(alpha = 0.4f),
+                    uncheckedThumbColor = MutedSlateText,
+                    uncheckedTrackColor = DarkElevatedSurface
+                )
+            )
+        } else {
+            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Open", tint = MutedSlateText)
+        }
     }
 }

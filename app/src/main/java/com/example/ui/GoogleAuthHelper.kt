@@ -50,8 +50,8 @@ suspend fun doGoogleSignIn(context: Context): String? {
     } catch (e: GetCredentialException) {
         Log.e("GoogleAuth", "GetCredentialException", e)
         return null
-    } catch (e: Exception) {
-        Log.e("GoogleAuth", "Unexpected error", e)
+    } catch (e: Throwable) {
+        Log.e("GoogleAuth", "Unexpected throwable", e)
         return null
     }
 }

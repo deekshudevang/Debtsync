@@ -1,5 +1,5 @@
 {
-  "name": "DebtSync AI",
+  "name": "DebtSync X",
   "description": "Debt tracking app with AI financial analysis, dark Material 3 design, local persistence, WhatsApp reminders, and localized UPI deep link payment support.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

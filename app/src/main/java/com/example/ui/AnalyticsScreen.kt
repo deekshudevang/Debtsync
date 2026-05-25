@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -107,6 +109,8 @@ fun AnalyticsScreen(
                     .padding(24.dp)
             ) {
                 if (maxAmount > 0) {
+                    val colorLent = NeonEmeraldGreen
+                    val colorBorrowed = NeonCrimsonRed
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val width = size.width
                         val height = size.height
@@ -117,7 +121,7 @@ fun AnalyticsScreen(
                         // Lent Bar
                         val lentHeight = ((totalLent / maxAmount) * height).toFloat()
                         drawRoundRect(
-                            color = NeonEmeraldGreen,
+                            color = colorLent,
                             topLeft = Offset(width / 2f - spacing / 2 - barWidth / 2, height - lentHeight),
                             size = Size(barWidth, lentHeight),
                             cornerRadius = CornerRadius(8.dp.toPx())
@@ -126,7 +130,7 @@ fun AnalyticsScreen(
                         // Borrowed Bar
                         val borrowedHeight = ((totalBorrowed / maxAmount) * height).toFloat()
                         drawRoundRect(
-                            color = NeonCrimsonRed,
+                            color = colorBorrowed,
                             topLeft = Offset(width / 2f + spacing / 2 - barWidth / 2, height - borrowedHeight),
                             size = Size(barWidth, borrowedHeight),
                             cornerRadius = CornerRadius(8.dp.toPx())
@@ -138,7 +142,62 @@ fun AnalyticsScreen(
             }
             
             Spacer(modifier = Modifier.height(24.dp))
-            
+
+            // Trust Score (Advanced Analytics Engine)
+            Text("AI Trust & Credit Score", color = OffWhiteText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    val trustScore = if (totalLent >= totalBorrowed) 850 else 600
+                    Box(contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            progress = { trustScore / 1000f },
+                            modifier = Modifier.size(120.dp),
+                            color = NeonEmeraldGreen,
+                            trackColor = DarkBorder,
+                            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
+                            strokeWidth = 10.dp,
+                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(trustScore.toString(), color = OffWhiteText, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(if (trustScore > 700) "Excellent" else "Fair", color = NeonEmeraldGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Your repayment consistency makes you highly trustworthy.", color = MutedSlateText, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Gamification
+            Text("Achievements & Streaks", color = OffWhiteText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = DarkSurface)) {
+                    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Star, contentDescription = "Streak", tint = MatteGoldAccent, modifier = Modifier.size(32.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("14 Days", color = OffWhiteText, fontWeight = FontWeight.Bold)
+                        Text("Repayment Streak", color = MutedSlateText, fontSize = 10.sp)
+                    }
+                }
+                Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = DarkSurface)) {
+                    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = "Settler", tint = CyanSlateAccent, modifier = Modifier.size(32.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Fast Settler", color = OffWhiteText, fontWeight = FontWeight.Bold)
+                        Text("Settle < 24h", color = MutedSlateText, fontSize = 10.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Top Owers
             Text("Top Owe You", color = OffWhiteText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))

@@ -3,6 +3,7 @@ package com.example.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -71,6 +72,23 @@ fun AIAssistantScreen(
                     color = NeonEmeraldGreen,
                     trackColor = DarkSurface
                 )
+            }
+
+            if (messages.size == 1) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val suggestions = listOf("Analyze my spending", "Who is my riskiest borrower?", "What's my trust score?", "Generate settlement strategy", "Remind all pending amounts")
+                    items(suggestions) { suggestion ->
+                        AssistChip(
+                            onClick = { input = suggestion },
+                            label = { Text(suggestion, color = CyanSlateAccent) },
+                            colors = AssistChipDefaults.assistChipColors(containerColor = DarkSurface),
+                            border = AssistChipDefaults.assistChipBorder(enabled = true, borderColor = CyanSlateAccent, borderWidth = 1.dp)
+                        )
+                    }
+                }
             }
 
             Row(

@@ -66,6 +66,7 @@ class ContactViewModel(application: Application) : AndroidViewModel(application)
     val isTempUnlocked = MutableStateFlow(false)
     val isOnboarded = MutableStateFlow(prefs.getBoolean("is_onboarded", false))
     val googleAccountId = MutableStateFlow(prefs.getString("google_account_id", null))
+    val isDarkMode = MutableStateFlow(prefs.getBoolean("is_dark_mode", true))
 
     init {
         val database = AppDatabase.getDatabase(application)
@@ -377,6 +378,11 @@ class ContactViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // Helper to generate dynamic WhatsApp reminder templates
+    fun setDarkMode(isEnabled: Boolean) {
+        prefs.edit().putBoolean("is_dark_mode", isEnabled).apply()
+        isDarkMode.value = isEnabled
+    }
+
     fun getWhatsAppReminderMessage(name: String, amount: Double): String {
         return if (amount > 0) {
             "Hi $name, just a gentle reminder regarding our pending payment on DebtSync. Outstanding of ₹${String.format(Locale.getDefault(), "%.2f", amount)} is pending to receive. You can pay via UPI. Thanks!"

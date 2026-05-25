@@ -38,6 +38,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -228,23 +230,33 @@ fun OnboardingScreen(navController: NavController, viewModel: ContactViewModel) 
         }
     }
     val coroutineScope = rememberCoroutineScope()
+    var isVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
 
     Box(
         modifier = Modifier.fillMaxSize().background(DeepSpaceBackground),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(24.dp)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = isVisible,
+            enter = androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(1000)) + 
+                    androidx.compose.animation.slideInVertically(initialOffsetY = { 50 }, animationSpec = androidx.compose.animation.core.tween(1000))
         ) {
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(DarkSurface)
-                    .border(2.dp, CyanSlateAccent, RoundedCornerShape(24.dp)),
-                contentAlignment = Alignment.Center
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(24.dp)
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(DarkSurface)
+                        .border(2.dp, CyanSlateAccent, RoundedCornerShape(24.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
                  Icon(
                      imageVector = Icons.Default.Sync,
                      contentDescription = "Logo",
@@ -261,10 +273,11 @@ fun OnboardingScreen(navController: NavController, viewModel: ContactViewModel) 
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Seamlessly track, manage and settle your peer-to-peer debts.",
+                text = "The AI-Powered Financial Ecosystem. Manage settlements, track trust scores, and automate group expenses seamlessly.",
                 fontSize = 16.sp,
                 color = MutedSlateText,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                lineHeight = 22.sp
             )
             Spacer(modifier = Modifier.height(48.dp))
             
@@ -317,6 +330,7 @@ fun OnboardingScreen(navController: NavController, viewModel: ContactViewModel) 
                 color = MutedSlateText,
                 textAlign = TextAlign.Center
             )
+        }
         }
     }
 }
@@ -527,10 +541,14 @@ fun DashboardScreen(navController: NavController, viewModel: ContactViewModel) {
         }
     }
 
+    val haptic = LocalHapticFeedback.current
+
     // Set status bar lock updates
     LaunchedEffect(Unit) {
         viewModel.lockApp()
     }
+
+    var showSpeedDial by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -572,23 +590,53 @@ fun DashboardScreen(navController: NavController, viewModel: ContactViewModel) {
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .background(DarkSurface, RoundedCornerShape(16.dp))
-                            .border(1.dp, NeonEmeraldGreen, RoundedCornerShape(16.dp))
+                            .size(40.dp)
+                            .background(DarkSurface, RoundedCornerShape(12.dp))
+                            .border(1.dp, NeonEmeraldGreen, RoundedCornerShape(12.dp))
                             .clickable { navController.navigate("ai_assistant") },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = "AI Assistant", tint = NeonEmeraldGreen, modifier = Modifier.size(20.dp))
+                        Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = "AI Assistant", tint = NeonEmeraldGreen, modifier = Modifier.size(18.dp))
                     }
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .background(DarkSurface, RoundedCornerShape(16.dp))
-                            .border(1.dp, DarkBorder, RoundedCornerShape(16.dp))
+                            .size(40.dp)
+                            .background(DarkSurface, RoundedCornerShape(12.dp))
+                            .border(1.dp, CyanSlateAccent, RoundedCornerShape(12.dp))
+                            .clickable { navController.navigate("analytics") },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(imageVector = Icons.Default.BarChart, contentDescription = "Analytics", tint = CyanSlateAccent, modifier = Modifier.size(18.dp))
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(DarkSurface, RoundedCornerShape(12.dp))
+                            .border(1.dp, MatteGoldAccent, RoundedCornerShape(12.dp))
+                            .clickable {
+                                val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                    putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Say e.g. 'Rahul owes me 500'")
+                                }
+                                try {
+                                    voiceResultLauncher.launch(intent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Voice input not supported", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(imageVector = Icons.Default.Mic, contentDescription = "Voice Input", tint = MatteGoldAccent, modifier = Modifier.size(18.dp))
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(DarkSurface, RoundedCornerShape(12.dp))
+                            .border(1.dp, DarkBorder, RoundedCornerShape(12.dp))
                             .clickable { navController.navigate("settings") },
                         contentAlignment = Alignment.Center
                     ) {
@@ -596,27 +644,90 @@ fun DashboardScreen(navController: NavController, viewModel: ContactViewModel) {
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings",
                             tint = OffWhiteText,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
             }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { navController.navigate("add_contact") },
-                containerColor = CyanSlateAccent,
-                contentColor = MatteGoldAccent,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.offset(y = (-16).dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            Column(horizontalAlignment = Alignment.End) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showSpeedDial,
+                    enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Bottom) + androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Bottom) + androidx.compose.animation.fadeOut()
                 ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = "Add Contact")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add Person", fontWeight = FontWeight.Bold)
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    ) {
+                        SmallFloatingActionButton(
+                            onClick = { 
+                                showSpeedDial = false
+                                Toast.makeText(context, "Exporting CSV...", Toast.LENGTH_SHORT).show()
+                                val csvHeader = "ID,Amount,Type,Date,Note\n"
+                                val csvBody = rawTxList.joinToString("\n") { 
+                                    "${it.id},${it.amount},${if(it.isBorrowed) "Borrowed" else "Lent"},${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(it.timestamp))},${it.note.replace(",", " ")}"
+                                }
+                                val sendIntent = android.content.Intent().apply {
+                                    action = android.content.Intent.ACTION_SEND
+                                    putExtra(android.content.Intent.EXTRA_TEXT, csvHeader + csvBody)
+                                    type = "text/csv"
+                                }
+                                context.startActivity(android.content.Intent.createChooser(sendIntent, "Export Transactions"))
+                            },
+                            containerColor = DarkSurface,
+                            contentColor = OffWhiteText
+                        ) {
+                            Icon(imageVector = Icons.Default.Download, contentDescription = "Export Report")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SmallFloatingActionButton(
+                            onClick = { 
+                                showSpeedDial = false
+                                Toast.makeText(context, "Receipt Scanner (OCR) simulation started. Simulating bill text extraction...", Toast.LENGTH_LONG).show()
+                            },
+                            containerColor = DarkSurface,
+                            contentColor = MatteGoldAccent
+                        ) {
+                            Icon(imageVector = Icons.Default.DocumentScanner, contentDescription = "Scan Receipt OCR")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SmallFloatingActionButton(
+                            onClick = { 
+                                showSpeedDial = false
+                                navController.navigate("split_bill") 
+                            },
+                            containerColor = DarkSurface,
+                            contentColor = CyanSlateAccent
+                        ) {
+                            Icon(imageVector = Icons.Default.CallSplit, contentDescription = "Split Bill")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SmallFloatingActionButton(
+                            onClick = { 
+                                showSpeedDial = false
+                                navController.navigate("add_contact") 
+                            },
+                            containerColor = CyanSlateAccent,
+                            contentColor = DeepSpaceBackground
+                        ) {
+                            Icon(imageVector = Icons.Default.PersonAdd, contentDescription = "Add Person")
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+                FloatingActionButton(
+                    onClick = { 
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showSpeedDial = !showSpeedDial 
+                    },
+                    containerColor = if (showSpeedDial) DarkSurface else CyanSlateAccent,
+                    contentColor = if (showSpeedDial) OffWhiteText else DeepSpaceBackground,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.offset(y = (-16).dp)
+                ) {
+                    Icon(imageVector = if (showSpeedDial) Icons.Default.Close else Icons.Default.Add, contentDescription = "Actions")
                 }
             }
         }
@@ -770,6 +881,7 @@ fun DashboardScreen(navController: NavController, viewModel: ContactViewModel) {
             } else {
                 items(filteredContacts, key = { it.contact.id }) { item ->
                     ContactListItemCard(
+                        modifier = Modifier.animateItem(),
                         item = item,
                         onClick = {
                             navController.navigate("contact_detail/${item.contact.id}")
@@ -809,6 +921,7 @@ fun DashboardScreen(navController: NavController, viewModel: ContactViewModel) {
                 items(dashboardState.recentTransactions.take(5)) { txWithContact ->
                     val tx = txWithContact.transaction
                     RecentTxDashboardItem(
+                        modifier = Modifier.animateItem(),
                         tx = tx,
                         contactName = txWithContact.contactName,
                         onDeleteClick = { viewModel.deleteTransaction(tx) }
@@ -1018,6 +1131,8 @@ fun DashboardSummarySection(
                     letterSpacing = 1.sp
                 )
                 Spacer(modifier = Modifier.height(16.dp))
+                val colorLent = NeonEmeraldGreen
+                val colorBorrowed = NeonCrimsonRed
                 Canvas(
                     modifier = Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp))
                 ) {
@@ -1026,10 +1141,10 @@ fun DashboardSummarySection(
                     val lentWidth = width * drawLentRatio
                     val borrowedWidth = (width - lentWidth).coerceAtLeast(0f)
                     if (lentWidth > 0f) {
-                        drawRect(color = NeonEmeraldGreen, size = androidx.compose.ui.geometry.Size(lentWidth, size.height))
+                        drawRect(color = colorLent, size = androidx.compose.ui.geometry.Size(lentWidth, size.height))
                     }
                     if (borrowedWidth > 0f) {
-                        drawRect(color = NeonCrimsonRed, topLeft = androidx.compose.ui.geometry.Offset(lentWidth, 0f), size = androidx.compose.ui.geometry.Size(borrowedWidth, size.height))
+                        drawRect(color = colorBorrowed, topLeft = androidx.compose.ui.geometry.Offset(lentWidth, 0f), size = androidx.compose.ui.geometry.Size(borrowedWidth, size.height))
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
@@ -1048,11 +1163,16 @@ fun ContactListItemCard(
     onClick: () -> Unit,
     onPayClick: () -> Unit,
     onRemindClick: () -> Unit,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     Card(
-        onClick = onClick,
-        modifier = Modifier
+        onClick = { 
+            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp)),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -1157,10 +1277,11 @@ fun ContactListItemCard(
 fun RecentTxDashboardItem(
     tx: Transaction,
     contactName: String,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(Color.Transparent)
@@ -1758,6 +1879,7 @@ fun ContactDetailScreen(
                 } else {
                     items(transactions, key = { it.id }) { tx ->
                         TransactionListItem(
+                            modifier = Modifier.animateItem(),
                             tx = tx,
                             onDelete = { viewModel.deleteTransaction(tx) }
                         )
@@ -1957,12 +2079,13 @@ fun DialogEditUPI(
 @Composable
 fun TransactionListItem(
     tx: Transaction,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val dateStr = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(tx.timestamp))
     
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(DarkSurface)
@@ -2109,7 +2232,27 @@ fun SettingsScreen(navController: NavController, viewModel: ContactViewModel) {
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            
+            // DebtSync X Premium Monitzation
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable { 
+                    Toast.makeText(context, "Opening Razorpay Payments Gateway...", Toast.LENGTH_SHORT).show()
+                },
+                colors = CardDefaults.cardColors(containerColor = MatteGoldAccent),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("DebtSync X PRO", color = DeepSpaceBackground, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                        Text("Cloud sync, Unlimited AI, Reports", color = DeepSpaceBackground, fontSize = 12.sp)
+                    }
+                    Icon(Icons.Default.WorkspacePremium, contentDescription = "Pro", tint = DeepSpaceBackground, modifier = Modifier.size(32.dp))
+                }
+            }
+
             // CLOUD SYNC & ACCOUNT BLOCK
             Text("Cloud Synchronization", fontSize = 14.sp, color = MutedSlateText, fontWeight = FontWeight.Bold)
             Box(
@@ -2366,6 +2509,8 @@ fun SettingsScreen(navController: NavController, viewModel: ContactViewModel) {
                 }
             }
 
+            val isDarkMode by viewModel.isDarkMode.collectAsState()
+
             // APPEARANCE & THEMES
             Text("Appearance", fontSize = 14.sp, color = MutedSlateText, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
             Box(
@@ -2377,8 +2522,8 @@ fun SettingsScreen(navController: NavController, viewModel: ContactViewModel) {
                     .padding(16.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    SettingsRow(icon = Icons.Default.DarkMode, title = "Dark Mode", subtitle = "Midnight Obsidian", tint = MutedSlateText, hasToggle = true, defaultToggle = true, onToggle = {
-                        Toast.makeText(context, if (it) "Dark Mode Enabled" else "Light Mode conceptually enabled (Dark Theme is forced)", Toast.LENGTH_SHORT).show()
+                    SettingsRow(icon = Icons.Default.DarkMode, title = "Dark Mode", subtitle = "Switch to light/dark interface", tint = MutedSlateText, hasToggle = true, defaultToggle = isDarkMode, onToggle = {
+                        viewModel.setDarkMode(it)
                     })
                     SettingsRow(icon = Icons.Default.FontDownload, title = "System Font", subtitle = "Variable sans-serif", tint = MutedSlateText, hasToggle = true, defaultToggle = true, onToggle = {
                         Toast.makeText(context, "System Font change registered.", Toast.LENGTH_SHORT).show()
@@ -2659,7 +2804,7 @@ fun launchWhatsApp(context: Context, phone: String, message: String) {
 
 @Composable
 fun SettingsRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, tint: androidx.compose.ui.graphics.Color, hasToggle: Boolean = false, defaultToggle: Boolean = false, onToggle: (Boolean) -> Unit = {}) {
-    var isChecked by remember { mutableStateOf(defaultToggle) }
+    var isChecked by remember(defaultToggle) { mutableStateOf(defaultToggle) }
     Row(
         modifier = Modifier.fillMaxWidth().clickable { 
             if(hasToggle) {

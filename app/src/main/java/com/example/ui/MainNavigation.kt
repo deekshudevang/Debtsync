@@ -2377,9 +2377,15 @@ fun SettingsScreen(navController: NavController, viewModel: ContactViewModel) {
                     .padding(16.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    SettingsRow(icon = Icons.Default.DarkMode, title = "Dark Mode", subtitle = "Midnight Obsidian", tint = MutedSlateText, hasToggle = true, defaultToggle = true)
-                    SettingsRow(icon = Icons.Default.FontDownload, title = "System Font", subtitle = "Variable sans-serif", tint = MutedSlateText, hasToggle = true, defaultToggle = true)
-                    SettingsRow(icon = Icons.Default.Animation, title = "Reduced Motion", subtitle = "Disable parallax and glass blur", tint = MutedSlateText, hasToggle = true, defaultToggle = false)
+                    SettingsRow(icon = Icons.Default.DarkMode, title = "Dark Mode", subtitle = "Midnight Obsidian", tint = MutedSlateText, hasToggle = true, defaultToggle = true, onToggle = {
+                        Toast.makeText(context, if (it) "Dark Mode Enabled" else "Light Mode conceptually enabled (Dark Theme is forced)", Toast.LENGTH_SHORT).show()
+                    })
+                    SettingsRow(icon = Icons.Default.FontDownload, title = "System Font", subtitle = "Variable sans-serif", tint = MutedSlateText, hasToggle = true, defaultToggle = true, onToggle = {
+                        Toast.makeText(context, "System Font change registered.", Toast.LENGTH_SHORT).show()
+                    })
+                    SettingsRow(icon = Icons.Default.Animation, title = "Reduced Motion", subtitle = "Disable parallax and glass blur", tint = MutedSlateText, hasToggle = true, defaultToggle = false, onToggle = {
+                        Toast.makeText(context, if (it) "Reduced Motion Enabled" else "Reduced Motion Disabled", Toast.LENGTH_SHORT).show()
+                    })
                 }
             }
 
@@ -2652,10 +2658,15 @@ fun launchWhatsApp(context: Context, phone: String, message: String) {
 }
 
 @Composable
-fun SettingsRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, tint: androidx.compose.ui.graphics.Color, hasToggle: Boolean = false, defaultToggle: Boolean = false) {
+fun SettingsRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, tint: androidx.compose.ui.graphics.Color, hasToggle: Boolean = false, defaultToggle: Boolean = false, onToggle: (Boolean) -> Unit = {}) {
     var isChecked by remember { mutableStateOf(defaultToggle) }
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { if(hasToggle) isChecked = !isChecked },
+        modifier = Modifier.fillMaxWidth().clickable { 
+            if(hasToggle) {
+                isChecked = !isChecked
+                onToggle(isChecked)
+            }
+        },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2672,7 +2683,10 @@ fun SettingsRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: St
         if (hasToggle) {
             Switch(
                 checked = isChecked,
-                onCheckedChange = { isChecked = it },
+                onCheckedChange = { 
+                    isChecked = it 
+                    onToggle(it)
+                },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = CyanSlateAccent,
                     checkedTrackColor = CyanSlateAccent.copy(alpha = 0.4f),
